@@ -1,0 +1,544 @@
+[
+    {
+        "id": "asst_LQSmHI1oNeOzqIKaJHZcDUK0",
+        "created_at": 1740309321,
+        "description": "Handles user input, manages workflow and coordinates between agents",
+        "instructions": "# KomySMM_ai Agency\n\n## Agency Description\nKomySMM_ai is an AI-powered agency specializing in generating high-quality, tailored social media captions while automating workflow, ensuring user approvals, and integrating with Google Sheets & Docs.\n\n## Mission Statement\nTo streamline and enhance social media content creation by combining AI-powered caption generation with brand consistency and seamless document integration, while maintaining high quality through user approval workflows.\n\n## Operating Environment\n- Python-based system using Agency Swarm framework\n- Integration with Google Sheets and Google Docs APIs\n- File-based brand and caption storage system\n- User interaction through Gradio web interface\n\n## Shared Guidelines\n\n### File Structure\n- Each account has its own folder in /accounts/{account_name}/\n- Required files per account:\n  - Brand.txt: Contains brand identity details\n  - old_captions.txt: Stores best-performing past captions\n  - links.txt: Contains Google Sheet and Doc links\n\n### Communication Protocol\n1. All user interactions go through the Account Manager\n2. Content approval flows from Content Strategist \u2192 Content Writer \u2192 Publishing Agent\n3. Each step requires user approval before proceeding\n4. Maintain professional tone in all communications\n\n### Content Standards\n1. All content must align with brand voice from Brand.txt\n2. Captions should maintain consistency with style in old_captions.txt\n3. Follow proper formatting in Google Docs:\n   - Post titles: Heading 3, black, bold, 13px\n   - Captions: Normal text, black, 11px\n\n### Error Handling\n1. Validate all file access before operations\n2. Ensure Google API connections are active\n3. Provide clear error messages to users\n4. Maintain data integrity during all operations \n\n# Agent Role\n\nThe Account Manager is the primary interface between users and the KomySMM_ai agency. This agent handles user input, manages workflow coordination, and ensures smooth communication between all agents in the content creation process.\n\n# Goals\n\n1. Efficiently manage user interactions and input validation\n2. Coordinate workflow between different agents\n3. Ensure all necessary files and permissions are in place\n4. Maintain clear communication about task progress\n5. Handle error cases and provide helpful feedback\n\n# Process Workflow\n\n1. Initial User Interaction\n   - List available accounts using AccountListTool\n   - Collect and validate user input (account, caption count, topics)\n   - Ensure all required files exist for the selected account\n\n2. Workflow Management\n   - Initialize workflow tracking for new tasks\n   - Coordinate with Content Strategist for title/brief creation\n   - Manage approval process for titles and briefs\n   - Track progress through content creation pipeline\n\n3. Communication Management\n   - Keep user informed of progress\n   - Handle approval requests and feedback\n   - Coordinate revisions when needed\n   - Ensure final deliverables meet requirements\n\n4. Error Handling\n   - Validate all inputs before processing\n   - Provide clear error messages\n   - Suggest solutions when possible\n   - Maintain system stability during errors\n\n5. Quality Assurance\n   - Verify all required files are present\n   - Ensure content meets brand guidelines\n   - Confirm proper formatting in final documents\n   - Track successful completion of tasks ",
+        "metadata": {},
+        "model": "gpt-4o-2024-08-06",
+        "name": "AccountManager",
+        "object": "assistant",
+        "tools": [
+            {
+                "function": {
+                    "name": "WorkflowManagerTool",
+                    "description": "Tool for managing the workflow between different agents.\nTracks the state of the content creation process and coordinates approvals.",
+                    "parameters": {
+                        "properties": {
+                            "task_id": {
+                                "description": "Unique identifier for the task",
+                                "title": "Task Id",
+                                "type": "string"
+                            },
+                            "action": {
+                                "description": "Action to perform on the workflow",
+                                "enum": [
+                                    "start",
+                                    "update_status",
+                                    "get_status",
+                                    "approve",
+                                    "request_revision"
+                                ],
+                                "title": "Action",
+                                "type": "string"
+                            },
+                            "status_data": {
+                                "default": {},
+                                "description": "Status data to update",
+                                "title": "Status Data",
+                                "type": "object"
+                            },
+                            "feedback": {
+                                "default": "",
+                                "description": "Feedback for revision requests",
+                                "title": "Feedback",
+                                "type": "string"
+                            }
+                        },
+                        "required": [
+                            "action",
+                            "task_id"
+                        ],
+                        "type": "object"
+                    },
+                    "strict": false
+                },
+                "type": "function"
+            },
+            {
+                "function": {
+                    "name": "AccountListTool",
+                    "description": "Tool for listing available social media accounts by checking subfolders in accounts/.\nReturns a list of account names that have the required files (Brand.txt, old_captions.txt, links.txt).",
+                    "parameters": {
+                        "properties": {},
+                        "type": "object",
+                        "required": []
+                    },
+                    "strict": false
+                },
+                "type": "function"
+            },
+            {
+                "function": {
+                    "name": "UserInputTool",
+                    "description": "Tool for handling user input for caption generation tasks.\nValidates and processes user input for account selection, caption count, and topics.",
+                    "parameters": {
+                        "properties": {
+                            "account_name": {
+                                "description": "Selected account name",
+                                "title": "Account Name",
+                                "type": "string"
+                            },
+                            "caption_count": {
+                                "description": "Number of captions to generate",
+                                "title": "Caption Count",
+                                "type": "integer"
+                            },
+                            "topics": {
+                                "description": "List of topics for caption generation",
+                                "items": {
+                                    "type": "string"
+                                },
+                                "title": "Topics",
+                                "type": "array"
+                            }
+                        },
+                        "required": [
+                            "account_name",
+                            "caption_count",
+                            "topics"
+                        ],
+                        "type": "object"
+                    },
+                    "strict": false
+                },
+                "type": "function"
+            },
+            {
+                "function": {
+                    "name": "SendMessage",
+                    "description": "Correctly extracted `SendMessage` with all the required parameters with correct types",
+                    "parameters": {
+                        "$defs": {
+                            "recipient": {
+                                "enum": [
+                                    "ContentStrategist",
+                                    "PublishingAgent"
+                                ],
+                                "title": "recipient",
+                                "type": "string"
+                            }
+                        },
+                        "properties": {
+                            "recipient": {
+                                "allOf": [
+                                    {
+                                        "$ref": "#/$defs/recipient"
+                                    }
+                                ],
+                                "description": "ContentStrategist: Creates post titles and briefs based on brand guidelines\nPublishingAgent: Updates Google Docs and Sheets with approved content\n"
+                            },
+                            "my_primary_instructions": {
+                                "description": "Please repeat your primary instructions step-by-step, including both completed and the following next steps that you need to perform. For multi-step, complex tasks, first break them down into smaller steps yourself. Then, issue each step individually to the recipient agent via the message parameter. Each identified step should be sent in a separate message. Keep in mind that the recipient agent does not have access to these instructions. You must include recipient agent-specific instructions in the message or in the additional_instructions parameters.",
+                                "title": "My Primary Instructions",
+                                "type": "string"
+                            },
+                            "message": {
+                                "description": "Specify the task required for the recipient agent to complete. Focus on clarifying what the task entails, rather than providing exact instructions. Make sure to inlcude all the relevant information from the conversation needed to complete the task.",
+                                "title": "Message",
+                                "type": "string"
+                            },
+                            "message_files": {
+                                "anyOf": [
+                                    {
+                                        "items": {
+                                            "type": "string"
+                                        },
+                                        "type": "array"
+                                    },
+                                    {
+                                        "type": "null"
+                                    }
+                                ],
+                                "default": null,
+                                "description": "A list of file IDs to be sent as attachments to this message. Only use this if you have the file ID that starts with 'file-'.",
+                                "examples": [
+                                    "file-1234",
+                                    "file-5678"
+                                ],
+                                "title": "Message Files"
+                            },
+                            "additional_instructions": {
+                                "anyOf": [
+                                    {
+                                        "type": "string"
+                                    },
+                                    {
+                                        "type": "null"
+                                    }
+                                ],
+                                "default": null,
+                                "description": "Additional context or instructions from the conversation needed by the recipient agent to complete the task.",
+                                "title": "Additional Instructions"
+                            }
+                        },
+                        "required": [
+                            "message",
+                            "my_primary_instructions",
+                            "recipient"
+                        ],
+                        "type": "object"
+                    },
+                    "strict": false
+                },
+                "type": "function"
+            }
+        ],
+        "response_format": "auto",
+        "temperature": 0.5,
+        "tool_resources": {
+            "code_interpreter": null,
+            "file_search": null
+        },
+        "top_p": 1.0,
+        "reasoning_effort": null
+    },
+    {
+        "id": "asst_Mi67wOFPkJYr5aemLBE2gQIt",
+        "created_at": 1740309322,
+        "description": "Creates post titles and briefs based on brand guidelines",
+        "instructions": "# KomySMM_ai Agency\n\n## Agency Description\nKomySMM_ai is an AI-powered agency specializing in generating high-quality, tailored social media captions while automating workflow, ensuring user approvals, and integrating with Google Sheets & Docs.\n\n## Mission Statement\nTo streamline and enhance social media content creation by combining AI-powered caption generation with brand consistency and seamless document integration, while maintaining high quality through user approval workflows.\n\n## Operating Environment\n- Python-based system using Agency Swarm framework\n- Integration with Google Sheets and Google Docs APIs\n- File-based brand and caption storage system\n- User interaction through Gradio web interface\n\n## Shared Guidelines\n\n### File Structure\n- Each account has its own folder in /accounts/{account_name}/\n- Required files per account:\n  - Brand.txt: Contains brand identity details\n  - old_captions.txt: Stores best-performing past captions\n  - links.txt: Contains Google Sheet and Doc links\n\n### Communication Protocol\n1. All user interactions go through the Account Manager\n2. Content approval flows from Content Strategist \u2192 Content Writer \u2192 Publishing Agent\n3. Each step requires user approval before proceeding\n4. Maintain professional tone in all communications\n\n### Content Standards\n1. All content must align with brand voice from Brand.txt\n2. Captions should maintain consistency with style in old_captions.txt\n3. Follow proper formatting in Google Docs:\n   - Post titles: Heading 3, black, bold, 13px\n   - Captions: Normal text, black, 11px\n\n### Error Handling\n1. Validate all file access before operations\n2. Ensure Google API connections are active\n3. Provide clear error messages to users\n4. Maintain data integrity during all operations \n\n # Agent Role\n\nThe Content Strategist is responsible for analyzing brand identity and creating strategic post titles and briefs that align with the brand's voice, tone, and guidelines. This agent ensures content direction is consistent and effective.\n\n# Goals\n\n1. Analyze and understand brand identity from Brand.txt\n2. Generate engaging and strategic post titles\n3. Create detailed content briefs that guide caption creation\n4. Maintain brand consistency across all content\n5. Adapt content strategy based on successful past content\n\n# Process Workflow\n\n1. Brand Analysis\n   - Read and analyze Brand.txt using BrandAnalyzerTool\n   - Extract key brand elements (voice, tone, guidelines)\n   - Identify important keywords and themes\n   - Understand brand restrictions and requirements\n\n2. Content Strategy Development\n   - Review topics provided by Account Manager\n   - Align topics with brand identity\n   - Identify opportunities for engagement\n   - Plan content distribution across topics\n\n3. Title Generation\n   - Create titles that reflect brand voice\n   - Ensure alignment with topic requirements\n   - Incorporate strategic keywords\n   - Maintain consistent style across titles\n\n4. Brief Creation\n   - Develop detailed briefs for each title\n   - Include specific brand guidelines\n   - Provide context and objectives\n   - Outline key points to cover\n\n5. Quality Control\n   - Review titles and briefs for brand alignment\n   - Ensure all requirements are met\n   - Prepare for user approval\n   - Make revisions based on feedback\n",
+        "metadata": {},
+        "model": "gpt-4o-2024-08-06",
+        "name": "ContentStrategist",
+        "object": "assistant",
+        "tools": [
+            {
+                "function": {
+                    "name": "TitleGeneratorTool",
+                    "description": "Tool for generating post titles and briefs based on brand guidelines and topics.\nUses brand voice and previous content to maintain consistency.",
+                    "parameters": {
+                        "properties": {
+                            "brand_info": {
+                                "description": "Brand information from BrandAnalyzerTool",
+                                "title": "Brand Info",
+                                "type": "object"
+                            },
+                            "topics": {
+                                "description": "List of topics to generate titles for",
+                                "items": {
+                                    "type": "string"
+                                },
+                                "title": "Topics",
+                                "type": "array"
+                            },
+                            "count": {
+                                "description": "Number of titles to generate",
+                                "title": "Count",
+                                "type": "integer"
+                            }
+                        },
+                        "required": [
+                            "brand_info",
+                            "count",
+                            "topics"
+                        ],
+                        "type": "object"
+                    },
+                    "strict": false
+                },
+                "type": "function"
+            },
+            {
+                "function": {
+                    "name": "BrandAnalyzerTool",
+                    "description": "Tool for analyzing brand identity from Brand.txt file.\nExtracts and processes brand voice, tone, and guidelines.",
+                    "parameters": {
+                        "properties": {
+                            "account_name": {
+                                "description": "Name of the account to analyze",
+                                "title": "Account Name",
+                                "type": "string"
+                            }
+                        },
+                        "required": [
+                            "account_name"
+                        ],
+                        "type": "object"
+                    },
+                    "strict": false
+                },
+                "type": "function"
+            },
+            {
+                "function": {
+                    "name": "SendMessage",
+                    "description": "Correctly extracted `SendMessage` with all the required parameters with correct types",
+                    "parameters": {
+                        "$defs": {
+                            "recipient": {
+                                "const": "ContentWriter",
+                                "enum": [
+                                    "ContentWriter"
+                                ],
+                                "title": "recipient",
+                                "type": "string"
+                            }
+                        },
+                        "properties": {
+                            "recipient": {
+                                "allOf": [
+                                    {
+                                        "$ref": "#/$defs/recipient"
+                                    }
+                                ],
+                                "description": "ContentWriter: Generates captions matching brand tone and style\n"
+                            },
+                            "my_primary_instructions": {
+                                "description": "Please repeat your primary instructions step-by-step, including both completed and the following next steps that you need to perform. For multi-step, complex tasks, first break them down into smaller steps yourself. Then, issue each step individually to the recipient agent via the message parameter. Each identified step should be sent in a separate message. Keep in mind that the recipient agent does not have access to these instructions. You must include recipient agent-specific instructions in the message or in the additional_instructions parameters.",
+                                "title": "My Primary Instructions",
+                                "type": "string"
+                            },
+                            "message": {
+                                "description": "Specify the task required for the recipient agent to complete. Focus on clarifying what the task entails, rather than providing exact instructions. Make sure to inlcude all the relevant information from the conversation needed to complete the task.",
+                                "title": "Message",
+                                "type": "string"
+                            },
+                            "message_files": {
+                                "anyOf": [
+                                    {
+                                        "items": {
+                                            "type": "string"
+                                        },
+                                        "type": "array"
+                                    },
+                                    {
+                                        "type": "null"
+                                    }
+                                ],
+                                "default": null,
+                                "description": "A list of file IDs to be sent as attachments to this message. Only use this if you have the file ID that starts with 'file-'.",
+                                "examples": [
+                                    "file-1234",
+                                    "file-5678"
+                                ],
+                                "title": "Message Files"
+                            },
+                            "additional_instructions": {
+                                "anyOf": [
+                                    {
+                                        "type": "string"
+                                    },
+                                    {
+                                        "type": "null"
+                                    }
+                                ],
+                                "default": null,
+                                "description": "Additional context or instructions from the conversation needed by the recipient agent to complete the task.",
+                                "title": "Additional Instructions"
+                            }
+                        },
+                        "required": [
+                            "message",
+                            "my_primary_instructions",
+                            "recipient"
+                        ],
+                        "type": "object"
+                    },
+                    "strict": false
+                },
+                "type": "function"
+            }
+        ],
+        "response_format": "auto",
+        "temperature": 0.7,
+        "tool_resources": {
+            "code_interpreter": null,
+            "file_search": null
+        },
+        "top_p": 1.0,
+        "reasoning_effort": null
+    },
+    {
+        "id": "asst_oTeJH95MGXsgVoQ1Upbi2KA4",
+        "created_at": 1740309322,
+        "description": "Generates captions matching brand tone and style",
+        "instructions": "# KomySMM_ai Agency\n\n## Agency Description\nKomySMM_ai is an AI-powered agency specializing in generating high-quality, tailored social media captions while automating workflow, ensuring user approvals, and integrating with Google Sheets & Docs.\n\n## Mission Statement\nTo streamline and enhance social media content creation by combining AI-powered caption generation with brand consistency and seamless document integration, while maintaining high quality through user approval workflows.\n\n## Operating Environment\n- Python-based system using Agency Swarm framework\n- Integration with Google Sheets and Google Docs APIs\n- File-based brand and caption storage system\n- User interaction through Gradio web interface\n\n## Shared Guidelines\n\n### File Structure\n- Each account has its own folder in /accounts/{account_name}/\n- Required files per account:\n  - Brand.txt: Contains brand identity details\n  - old_captions.txt: Stores best-performing past captions\n  - links.txt: Contains Google Sheet and Doc links\n\n### Communication Protocol\n1. All user interactions go through the Account Manager\n2. Content approval flows from Content Strategist \u2192 Content Writer \u2192 Publishing Agent\n3. Each step requires user approval before proceeding\n4. Maintain professional tone in all communications\n\n### Content Standards\n1. All content must align with brand voice from Brand.txt\n2. Captions should maintain consistency with style in old_captions.txt\n3. Follow proper formatting in Google Docs:\n   - Post titles: Heading 3, black, bold, 13px\n   - Captions: Normal text, black, 11px\n\n### Error Handling\n1. Validate all file access before operations\n2. Ensure Google API connections are active\n3. Provide clear error messages to users\n4. Maintain data integrity during all operations \n\n# Agent Role\n\nThe Content Writer is responsible for generating high-quality social media captions that align with brand voice, follow approved briefs, and maintain consistency with successful past content. This agent ensures all content meets quality standards and brand requirements.\n\n# Goals\n\n1. Generate engaging social media captions\n2. Maintain consistent brand voice and tone\n3. Follow approved briefs and guidelines\n4. Learn from successful past content\n5. Adapt content based on feedback\n\n# Process Workflow\n\n1. Content Preparation\n   - Review approved title and brief\n   - Analyze old_captions.txt for style reference\n   - Understand brand guidelines\n   - Identify key message points\n\n2. Caption Generation\n   - Create captions following brand voice\n   - Incorporate brief requirements\n   - Maintain consistent style\n   - Ensure proper length and format\n\n3. Style Consistency\n   - Match tone from successful past content\n   - Use brand-appropriate language\n   - Follow formatting guidelines\n   - Maintain engagement style\n\n4. Quality Assurance\n   - Review against brand guidelines\n   - Check for proper formatting\n   - Ensure message clarity\n   - Verify character limits\n\n5. Revision Management\n   - Accept feedback from user\n   - Make requested revisions\n   - Maintain quality during changes\n   - Document improvements for future reference ",
+        "metadata": {},
+        "model": "gpt-4o-2024-08-06",
+        "name": "ContentWriter",
+        "object": "assistant",
+        "tools": [
+            {
+                "function": {
+                    "name": "CaptionGeneratorTool",
+                    "description": "Tool for generating social media captions based on approved titles and briefs.\nMaintains consistency with brand voice and previous successful captions.",
+                    "parameters": {
+                        "properties": {
+                            "account_name": {
+                                "description": "Name of the account",
+                                "title": "Account Name",
+                                "type": "string"
+                            },
+                            "title_data": {
+                                "description": "Approved title and brief data",
+                                "title": "Title Data",
+                                "type": "object"
+                            },
+                            "max_length": {
+                                "default": 280,
+                                "description": "Maximum caption length",
+                                "title": "Max Length",
+                                "type": "integer"
+                            }
+                        },
+                        "required": [
+                            "account_name",
+                            "title_data"
+                        ],
+                        "type": "object"
+                    },
+                    "strict": false
+                },
+                "type": "function"
+            },
+            {
+                "function": {
+                    "name": "SendMessage",
+                    "description": "Correctly extracted `SendMessage` with all the required parameters with correct types",
+                    "parameters": {
+                        "$defs": {
+                            "recipient": {
+                                "const": "PublishingAgent",
+                                "enum": [
+                                    "PublishingAgent"
+                                ],
+                                "title": "recipient",
+                                "type": "string"
+                            }
+                        },
+                        "properties": {
+                            "recipient": {
+                                "allOf": [
+                                    {
+                                        "$ref": "#/$defs/recipient"
+                                    }
+                                ],
+                                "description": "PublishingAgent: Updates Google Docs and Sheets with approved content\n"
+                            },
+                            "my_primary_instructions": {
+                                "description": "Please repeat your primary instructions step-by-step, including both completed and the following next steps that you need to perform. For multi-step, complex tasks, first break them down into smaller steps yourself. Then, issue each step individually to the recipient agent via the message parameter. Each identified step should be sent in a separate message. Keep in mind that the recipient agent does not have access to these instructions. You must include recipient agent-specific instructions in the message or in the additional_instructions parameters.",
+                                "title": "My Primary Instructions",
+                                "type": "string"
+                            },
+                            "message": {
+                                "description": "Specify the task required for the recipient agent to complete. Focus on clarifying what the task entails, rather than providing exact instructions. Make sure to inlcude all the relevant information from the conversation needed to complete the task.",
+                                "title": "Message",
+                                "type": "string"
+                            },
+                            "message_files": {
+                                "anyOf": [
+                                    {
+                                        "items": {
+                                            "type": "string"
+                                        },
+                                        "type": "array"
+                                    },
+                                    {
+                                        "type": "null"
+                                    }
+                                ],
+                                "default": null,
+                                "description": "A list of file IDs to be sent as attachments to this message. Only use this if you have the file ID that starts with 'file-'.",
+                                "examples": [
+                                    "file-1234",
+                                    "file-5678"
+                                ],
+                                "title": "Message Files"
+                            },
+                            "additional_instructions": {
+                                "anyOf": [
+                                    {
+                                        "type": "string"
+                                    },
+                                    {
+                                        "type": "null"
+                                    }
+                                ],
+                                "default": null,
+                                "description": "Additional context or instructions from the conversation needed by the recipient agent to complete the task.",
+                                "title": "Additional Instructions"
+                            }
+                        },
+                        "required": [
+                            "message",
+                            "my_primary_instructions",
+                            "recipient"
+                        ],
+                        "type": "object"
+                    },
+                    "strict": false
+                },
+                "type": "function"
+            }
+        ],
+        "response_format": "auto",
+        "temperature": 0.7,
+        "tool_resources": {
+            "code_interpreter": null,
+            "file_search": null
+        },
+        "top_p": 1.0,
+        "reasoning_effort": null
+    },
+    {
+        "id": "asst_YKYiX8cXwNRcYcEflaSZiDns",
+        "created_at": 1740309323,
+        "description": "Updates Google Docs and Sheets with approved content",
+        "instructions": "# KomySMM_ai Agency\n\n## Agency Description\nKomySMM_ai is an AI-powered agency specializing in generating high-quality, tailored social media captions while automating workflow, ensuring user approvals, and integrating with Google Sheets & Docs.\n\n## Mission Statement\nTo streamline and enhance social media content creation by combining AI-powered caption generation with brand consistency and seamless document integration, while maintaining high quality through user approval workflows.\n\n## Operating Environment\n- Python-based system using Agency Swarm framework\n- Integration with Google Sheets and Google Docs APIs\n- File-based brand and caption storage system\n- User interaction through Gradio web interface\n\n## Shared Guidelines\n\n### File Structure\n- Each account has its own folder in /accounts/{account_name}/\n- Required files per account:\n  - Brand.txt: Contains brand identity details\n  - old_captions.txt: Stores best-performing past captions\n  - links.txt: Contains Google Sheet and Doc links\n\n### Communication Protocol\n1. All user interactions go through the Account Manager\n2. Content approval flows from Content Strategist \u2192 Content Writer \u2192 Publishing Agent\n3. Each step requires user approval before proceeding\n4. Maintain professional tone in all communications\n\n### Content Standards\n1. All content must align with brand voice from Brand.txt\n2. Captions should maintain consistency with style in old_captions.txt\n3. Follow proper formatting in Google Docs:\n   - Post titles: Heading 3, black, bold, 13px\n   - Captions: Normal text, black, 11px\n\n### Error Handling\n1. Validate all file access before operations\n2. Ensure Google API connections are active\n3. Provide clear error messages to users\n4. Maintain data integrity during all operations \n\n# Agent Role\n\nThe Publishing Agent is responsible for managing the integration with Google Docs and Sheets, ensuring proper formatting and organization of approved content, and maintaining document consistency across all platforms.\n\n# Goals\n\n1. Manage Google Docs/Sheets integration\n2. Ensure proper content formatting\n3. Maintain document organization\n4. Handle document updates efficiently\n5. Verify successful content publishing\n\n# Process Workflow\n\n1. Document Preparation\n   - Access document links from links.txt\n   - Verify API connections\n   - Check document permissions\n   - Prepare formatting templates\n\n2. Content Publishing\n   - Format titles according to specifications\n   - Format captions according to guidelines\n   - Maintain document structure\n   - Ensure proper spacing and layout\n\n3. Format Management\n   - Apply Heading 3 style to titles (black, bold, 13px)\n   - Format captions as normal text (black, 11px)\n   - Maintain consistent spacing\n   - Verify formatting accuracy\n\n4. Quality Control\n   - Verify all content is properly published\n   - Check formatting consistency\n   - Ensure document organization\n   - Validate links and references\n\n5. Error Management\n   - Handle API connection issues\n   - Manage document access errors\n   - Provide clear error reporting\n   - Implement recovery procedures ",
+        "metadata": {},
+        "model": "gpt-4o-2024-08-06",
+        "name": "PublishingAgent",
+        "object": "assistant",
+        "tools": [
+            {
+                "function": {
+                    "name": "GoogleDocsIntegrationTool",
+                    "description": "Tool for managing Google Docs integration.\nHandles reading, formatting, and updating captions in Google Docs.",
+                    "parameters": {
+                        "properties": {
+                            "account_name": {
+                                "description": "Name of the account",
+                                "title": "Account Name",
+                                "type": "string"
+                            },
+                            "content": {
+                                "description": "Content to be added to Google Docs",
+                                "title": "Content",
+                                "type": "object"
+                            },
+                            "doc_id": {
+                                "anyOf": [
+                                    {
+                                        "type": "string"
+                                    },
+                                    {
+                                        "type": "null"
+                                    }
+                                ],
+                                "default": null,
+                                "description": "Google Doc ID (if not provided, will be read from links.txt)",
+                                "title": "Doc Id"
+                            }
+                        },
+                        "required": [
+                            "account_name",
+                            "content"
+                        ],
+                        "type": "object"
+                    },
+                    "strict": false
+                },
+                "type": "function"
+            }
+        ],
+        "response_format": "auto",
+        "temperature": 0.5,
+        "tool_resources": {
+            "code_interpreter": null,
+            "file_search": null
+        },
+        "top_p": 1.0,
+        "reasoning_effort": null
+    }
+]

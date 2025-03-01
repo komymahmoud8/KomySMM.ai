@@ -1,0 +1,2 @@
+https://docs.google.com/spreadsheets/d/your_calendar_spreadsheet_id/edit
+https://docs.google.com/document/d/your_captions_document_id/edit
